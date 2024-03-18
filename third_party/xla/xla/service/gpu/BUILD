@@ -2,7 +2,7 @@
 #   GPU-specific components in XLA service implementation.
 
 load("@bazel_skylib//rules:common_settings.bzl", "bool_flag")
-load("@local_config_cuda//cuda:build_defs.bzl", "cuda_library")
+load("@local_config_cuda//cuda:build_defs.bzl", "cuda_library", "if_hermetic_cuda")
 load(
     "@local_config_rocm//rocm:build_defs.bzl",
     "if_rocm_hipblaslt",
@@ -38,6 +38,7 @@ load("//xla/tests:build_defs.bzl", "xla_test")
 load(
     "//xla/tsl:tsl.bzl",
     "if_google",
+    "if_oss",
     "internal_visibility",
     "tsl_copts",
     "tsl_gpu_library",
@@ -3675,6 +3676,9 @@ cc_library(
     hdrs = if_cuda_is_configured([
         "nvptx_compiler.h",
     ]),
+    data = if_oss(if_hermetic_cuda([
+        "@cuda_nvcc//:nvlink",
+    ])),
     local_defines = select({
         "//xla/stream_executor/cuda:libnvptxcompiler_support_enabled": [
             "ENABLE_LIBNVPTXCOMPILER_SUPPORT=1",

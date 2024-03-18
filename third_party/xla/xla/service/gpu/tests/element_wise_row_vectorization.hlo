@@ -1,3 +1,4 @@
+// RUN: export XLA_FLAGS="--xla_gpu_cuda_data_dir=%S/../../../../../cuda_nvcc"
 // RUN: hlo-opt %s --platform=gpu --stage=ptx --xla_gpu_target_config_filename=%S/../../../tools/hlo_opt/gpu_specs/v100.txtpb --split-input-file | FileCheck %s
 // RUN: hlo-opt %s --platform=gpu --stage=llvm-before-optimizations --xla_gpu_target_config_filename=%S/../../../tools/hlo_opt/gpu_specs/%{GPU}.txtpb --split-input-file | FileCheck --check-prefixes=CHECK-LLVM %s
 // We check that the row loads are vectorized.

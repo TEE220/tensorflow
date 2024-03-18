@@ -31,6 +31,7 @@ limitations under the License.
 
 #if !defined(PLATFORM_GOOGLE)
 #include "third_party/gpus/cuda/cuda_config.h"
+#include "tsl/platform/env.h"
 #endif
 #include "tsl/platform/logging.h"
 
@@ -40,6 +41,17 @@ std::vector<std::string> CandidateCudaRoots() {
 #if !defined(PLATFORM_GOOGLE)
   auto roots = std::vector<std::string>{TF_CUDA_TOOLKIT_PATH,
                                         std::string("/usr/local/cuda")};
+  std::string runfiles_suffix = "runfiles";
+  std::string executable_path = tsl::Env::Default()->GetExecutablePath();
+  std::string cuda_nvcc_dir =
+      io::JoinPath(executable_path + "." + runfiles_suffix, "cuda_nvcc");
+  roots.emplace_back(cuda_nvcc_dir);
+  std::string runfiles_dir = tsl::Env::Default()->GetRunfilesDir();
+  std::size_t runfiles_ind = runfiles_dir.rfind(runfiles_suffix);
+  cuda_nvcc_dir = io::JoinPath(
+      runfiles_dir.substr(0, runfiles_ind + runfiles_suffix.length()),
+      "cuda_nvcc");
+  roots.emplace_back(cuda_nvcc_dir);
 
 #if defined(PLATFORM_POSIX) && !defined(__APPLE__)
   Dl_info info;
@@ -53,6 +65,9 @@ std::vector<std::string> CandidateCudaRoots() {
     // relative to the current binary for the wheel-based nvcc package.
     for (auto path : {"../nvidia/cuda_nvcc", "../../nvidia/cuda_nvcc"})
       roots.emplace_back(io::JoinPath(dir, path));
+
+    // Also add the path to the copy of libdevice.10.bc we include with jaxlib.
+    roots.emplace_back(io::JoinPath(dir, "cuda"));
   }
 #endif  // defined(PLATFORM_POSIX) && !defined(__APPLE__)
 

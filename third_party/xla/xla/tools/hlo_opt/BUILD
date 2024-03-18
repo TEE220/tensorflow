@@ -1,3 +1,4 @@
+load("@local_config_cuda//cuda:build_defs.bzl", "if_hermetic_cuda")
 load(
     "@local_config_rocm//rocm:build_defs.bzl",
     "if_rocm_is_configured",
@@ -17,6 +18,7 @@ load(
     "//xla/stream_executor:build_defs.bzl",
     "if_gpu_is_configured",
 )
+load("//xla/tsl:tsl.bzl", "if_oss")
 load("//xla/tsl:tsl.default.bzl", "filegroup")
 
 package(
@@ -168,6 +170,7 @@ lit_test_suite(
         "--param=GPU=mi200",
     ]),
     cfg = "//xla:lit.cfg.py",
+    cuda_tools = if_oss(if_hermetic_cuda(["@cuda_nvcc//:ptxas"])),
     data = [":test_utilities"],
     default_tags = tf_cuda_tests_tags(),
     tags_override = {

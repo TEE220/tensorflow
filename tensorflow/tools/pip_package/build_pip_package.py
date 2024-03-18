@@ -69,6 +69,34 @@ def prepare_headers(headers: list[str], srcs_dir: str) -> None:
     srcs_dir: target directory where headers are copied to.
   """
   path_to_exclude = [
+      "cuda_cccl/_virtual_includes",
+      "cuda_cublas/_virtual_includes",
+      "cuda_cudart/_virtual_includes",
+      "cuda_cudnn/_virtual_includes",
+      "cuda_cufft/_virtual_includes",
+      "cuda_cupti/_virtual_includes",
+      "cuda_curand/_virtual_includes",
+      "cuda_cusolver/_virtual_includes",
+      "cuda_cusparse/_virtual_includes",
+      "cuda_nccl/_virtual_includes",
+      "cuda_nvcc/_virtual_includes",
+      "cuda_nvjitlink/_virtual_includes",
+      "cuda_nvml/_virtual_includes",
+      "cuda_nvtx/_virtual_includes",
+      "external/cuda_cccl",
+      "external/cuda_cublas",
+      "external/cuda_cudart",
+      "external/cuda_cudnn",
+      "external/cuda_cufft",
+      "external/cuda_cupti",
+      "external/cuda_curand",
+      "external/cuda_cusolver",
+      "external/cuda_cusparse",
+      "external/cuda_nccl",
+      "external/cuda_nvcc",
+      "external/cuda_nvjitlink",
+      "external/cuda_nvml",
+      "external/cuda_nvtx",
       "external/pypi",
       "external/jsoncpp_git/src",
       "local_config_cuda/cuda/_virtual_includes",
@@ -235,6 +263,50 @@ def patch_so(srcs_dir: str) -> None:
           "pywrap_calibration.so"
       ): "$ORIGIN/../../../../../python",
   }
+
+  libs_to_remove = [
+      "libcudart.so.12",
+      "libcudnn.so.8",
+      "libcudnn.so.8",
+      "libcudnn_ops_infer.so.8",
+      "libcudnn_cnn_infer.so.8",
+      "libcudnn_ops_train.so.8",
+      "libcudnn_cnn_train.so.8",
+      "libcudnn_adv_infer.so.8",
+      "libcudnn_adv_train.so.8",
+      "libcublas.so.12",
+      "libcurand.so.10",
+      "libcublasLt.so.12",
+      "libnccl.so.2",
+      "libcusolver.so.11",
+      "libcufft.so.11",
+      "libcupti.so.12",
+      "libcusparse.so.12",
+      "libnvJitLink.so.12",
+  ]
+  files_update_dynamic_section = [
+      "tensorflow/python/_pywrap_tfe.so",
+      "tensorflow/python/tpu/_pywrap_tpu_embedding.so",
+      "tensorflow/python/data/experimental/service/_pywrap_utils_exp.so",
+      "tensorflow/python/profiler/internal/_pywrap_profiler.so",
+      "tensorflow/python/_pywrap_tfcompile.so",
+      "tensorflow/python/util/_pywrap_tfprof.so",
+      "tensorflow/python/util/_pywrap_utils.so",
+      "tensorflow/python/util/_pywrap_stat_summarizer.so",
+      "tensorflow/python/util/_pywrap_checkpoint_reader.so",
+      "tensorflow/python/_pywrap_py_exception_registry.so",
+      "tensorflow/python/framework/_proto_comparators.so",
+      "tensorflow/python/framework/_test_metrics_util.so",
+      "tensorflow/python/_pywrap_tensorflow_internal.so",
+      "tensorflow/python/saved_model/pywrap_saved_model.so",
+      "tensorflow/python/_pywrap_parallel_device.so",
+      "tensorflow/python/grappler/_pywrap_tf_item.so",
+      "tensorflow/libtensorflow_framework.so.2",
+      "tensorflow/libtensorflow_cc.so.2",
+      "tensorflow/core/kernels/libtfkernel_sobol_op.so",
+      "tensorflow/compiler/mlir/quantization/tensorflow/calibrator/pywrap_calibration.so",
+      "tensorflow/compiler/tf2tensorrt/_pywrap_py_utils.so",
+  ]
   for file, path in to_patch.items():
     rpath = subprocess.check_output(
         ["patchelf", "--print-rpath",
@@ -244,6 +316,13 @@ def patch_so(srcs_dir: str) -> None:
                     "{}/{}".format(srcs_dir, file)], check=True)
     subprocess.run(["patchelf", "--shrink-rpath",
                     "{}/{}".format(srcs_dir, file)], check=True)
+
+  for file in files_update_dynamic_section:
+    file_path = "{}/{}".format(srcs_dir, file)
+    for lib in libs_to_remove:
+      subprocess.run(
+          ["patchelf", "--remove-needed", lib, file_path], check=True
+      )
 
 
 def rename_libtensorflow(srcs_dir: str, version: str):

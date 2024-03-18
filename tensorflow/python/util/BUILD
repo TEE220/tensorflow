@@ -1,7 +1,9 @@
 # Tensorflow util package
 
+load("@local_config_cuda//cuda:build_defs.bzl", "if_hermetic_cuda")
 load("//tensorflow:pytype.default.bzl", "pytype_strict_library")
 load("//tensorflow:strict.default.bzl", "py_strict_library")
+load("//tensorflow:tensorflow.bzl", "if_oss")
 load("//tensorflow:tensorflow.default.bzl", "get_compatible_with_portable", "tf_py_strict_test", "tf_python_pybind_extension")
 load("//tensorflow/core/platform:build_config.bzl", "tf_proto_library")  # @unused
 load("//tensorflow/core/platform:build_config_root.bzl", "if_static")
@@ -434,6 +436,10 @@ tf_python_pybind_extension(
         # Using header directly is required to avoid ODR violations.
         "stack_trace.h",
     ],
+    data = if_oss(if_hermetic_cuda([
+        "@cuda_nvcc//:nvvm",
+        "@cuda_nvcc//:ptxas",
+    ])),
     enable_stub_generation = True,
     pytype_srcs = [
         "_tf_stack.pyi",

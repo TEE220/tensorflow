@@ -1,9 +1,10 @@
+load("@local_config_cuda//cuda:build_defs.bzl", "if_hermetic_cuda")
 load(
     "@local_config_rocm//rocm:build_defs.bzl",
     "if_rocm_is_configured",
 )
 load("//xla:xla.bzl", "xla_cc_test")
-load("//xla/tsl:tsl.bzl", "internal_visibility")
+load("//xla/tsl:tsl.bzl", "if_oss", "internal_visibility")
 
 package(
     # copybara:uncomment default_applicable_licenses = ["//tensorflow:license"],
@@ -28,6 +29,9 @@ cc_library(
         "gpu_backend_lib.h",
         "utils.h",
     ],
+    data = if_oss(if_hermetic_cuda([
+        "@cuda_nvcc//:nvvm",
+    ])),
     deps = [
         "//xla:status",
         "//xla:status_macros",

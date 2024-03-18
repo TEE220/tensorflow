@@ -42,6 +42,7 @@ def lit_test_suite(
         srcs,
         cfg,
         tools = None,
+        cuda_tools = None,
         args = None,
         data = None,
         visibility = None,
@@ -59,6 +60,9 @@ def lit_test_suite(
         the files in `srcs` in config.suffixes and must be in a parent directory
         of `srcs`.
       tools: label list. Tools invoked in the lit RUN lines. These binaries will
+        be symlinked into a directory which is on the path. They must therefore
+        have unique basenames.
+      cuda_tools: label list. CUDA Tools invoked in the lit RUN lines. These binaries will
         be symlinked into a directory which is on the path. They must therefore
         have unique basenames.
       args: string list. Additional arguments to pass to lit. Note that the test
@@ -83,6 +87,7 @@ def lit_test_suite(
     args = args or []
     data = data or []
     tools = tools or []
+    cuda_tools = cuda_tools or []
     default_tags = default_tags or []
     tags_override = tags_override or {}
 
@@ -98,6 +103,7 @@ def lit_test_suite(
             test_file = test_file,
             cfg = cfg,
             tools = tools,
+            cuda_tools = cuda_tools,
             args = args,
             data = data,
             visibility = visibility,
@@ -118,6 +124,7 @@ def lit_test(
         test_file,
         cfg,
         tools = None,
+        cuda_tools = None,
         args = None,
         data = None,
         visibility = None,
@@ -133,6 +140,9 @@ def lit_test(
         `test_file` in config.suffixes and must be in a parent directory of
         `test_file`.
       tools: label list. Tools invoked in the lit RUN lines. These binaries will
+        be symlinked into a directory which is on the path. They must therefore
+        have unique basenames.
+      cuda_tools: label list. CUDA Tools invoked in the lit RUN lines. These binaries will
         be symlinked into a directory which is on the path. They must therefore
         have unique basenames.
       args: string list. Additional arguments to pass to lit. Note that the test
@@ -152,6 +162,7 @@ def lit_test(
     args = args or []
     data = data or []
     tools = tools or []
+    cuda_tools = cuda_tools or []
     env = env or {}
 
     tools_on_path_target_name = "_{}_tools_on_path".format(name)
@@ -173,7 +184,7 @@ def lit_test(
     _tools_on_path(
         name = tools_on_path_target_name,
         testonly = True,
-        srcs = tools,
+        srcs = tools + cuda_tools,
         bin_dir = bin_dir,
         visibility = ["//visibility:private"],
         **kwargs

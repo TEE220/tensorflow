@@ -1,4 +1,5 @@
 load("@bazel_skylib//rules:common_settings.bzl", "bool_flag")
+load("@local_config_cuda//cuda:build_defs.bzl", "if_hermetic_cuda")
 load(
     "@local_tsl//tsl/platform:build_config_root.bzl",
     "if_static",
@@ -24,7 +25,7 @@ load(
     "tf_additional_cudnn_plugin_copts",
     "tf_additional_gpu_compilation_copts",
 )
-load("//xla/tsl:tsl.bzl", "if_google", "if_nccl", "internal_visibility", "tsl_copts")
+load("//xla/tsl:tsl.bzl", "if_google", "if_nccl", "if_oss", "internal_visibility", "tsl_copts")
 
 package(
     # copybara:uncomment default_applicable_licenses = ["//tensorflow:license"],
@@ -563,6 +564,11 @@ cuda_only_cc_library(
     srcs = ["cuda_asm_compiler.cc"],
     hdrs = ["cuda_asm_compiler.h"],
     copts = tf_additional_gpu_compilation_copts(),
+    data = if_oss(if_hermetic_cuda([
+        "@cuda_nvcc//:nvlink",
+        "@cuda_nvcc//:ptxas",
+        "@cuda_nvcc//:fatbinary",
+    ])),
     visibility = internal_visibility([
         "//third_party/py/jax:__subpackages__",
         "//tensorflow/compiler/mlir/tools/kernel_gen:__subpackages__",

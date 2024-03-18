@@ -1,3 +1,4 @@
+// RUN: export XLA_FLAGS="--xla_gpu_cuda_data_dir=%S/../../../../../../../../cuda_nvcc"
 // RUN: hlo_to_kernel --input=%s --output=%t --unroll_factors=4 --tile_sizes=256 --arch=sm_70
 
 func.func @tanh(%arg0: tensor<*xf32>) -> tensor<*xf32> attributes {tf_entry} {

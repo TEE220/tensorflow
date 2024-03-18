@@ -1,6 +1,7 @@
 load(":build_defs.bzl", "cuda_header_library")
 load("@bazel_skylib//:bzl_library.bzl", "bzl_library")
 load("@bazel_skylib//lib:selects.bzl", "selects")
+load("@bazel_skylib//rules:common_settings.bzl", "bool_setting")
 
 licenses(["restricted"])  # MPL2, portions GPL v3, LGPL v3, BSD-like
 
@@ -144,7 +145,6 @@ cc_library(
     name = "cusolver",
     srcs = ["cuda/lib/%{cusolver_lib}"],
     data = ["cuda/lib/%{cusolver_lib}"],
-    linkopts = ["-lgomp"],
     linkstatic = 1,
 )
 
@@ -220,7 +220,6 @@ cc_library(
     name = "cusparse",
     srcs = ["cuda/lib/%{cusparse_lib}"],
     data = ["cuda/lib/%{cusparse_lib}"],
-    linkopts = ["-lgomp"],
     linkstatic = 1,
 )
 
@@ -240,6 +239,27 @@ bzl_library(
 py_library(
     name = "cuda_config_py",
     srcs = ["cuda/cuda_config.py"],
+)
+
+# Config setting whether TensorFlow is built with hermetic CUDA.
+selects.config_setting_group(
+    name = "using_hermetic_cuda",
+    match_all = [
+        "@local_config_cuda//:is_cuda_enabled",
+        ":is_hermetic_cuda",
+    ],
+)
+
+bool_setting(
+    name = "true_setting",
+    visibility = ["//visibility:private"],
+    build_setting_default = True,
+)
+
+# Config setting that is never satisfied.
+config_setting(
+    name = "is_hermetic_cuda",
+    flag_values = {":true_setting": "False"},
 )
 
 %{copy_rules}

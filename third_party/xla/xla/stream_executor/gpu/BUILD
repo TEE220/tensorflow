@@ -4,6 +4,7 @@
 load(
     "@local_config_cuda//cuda:build_defs.bzl",
     "if_cuda",
+    "if_hermetic_cuda",
 )
 load(
     "@local_config_rocm//rocm:build_defs.bzl",
@@ -43,6 +44,7 @@ load(
 load(
     "//xla/tsl:tsl.bzl",
     "if_libtpu",
+    "if_oss",
     "internal_visibility",
     "tsl_copts",
     "tsl_gpu_library",
@@ -413,6 +415,10 @@ gpu_only_cc_library(
     srcs = ["asm_compiler.cc"],
     hdrs = ["asm_compiler.h"],
     copts = tsl_copts(),
+    data = if_oss(if_hermetic_cuda([
+        "@cuda_nvcc//:ptxas",
+        "@cuda_nvcc//:fatbinary",
+    ])),
     visibility = internal_visibility([
         "//xla/service/gpu:__subpackages__",
         "//xla/stream_executor:__subpackages__",

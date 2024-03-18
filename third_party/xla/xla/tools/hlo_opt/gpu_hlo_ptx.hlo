@@ -1,3 +1,4 @@
+// RUN: export XLA_FLAGS="--xla_gpu_cuda_data_dir=%S/../../../../cuda_nvcc"
 // RUN: hlo-opt %s --platform=CUDA --stage=ptx --xla_gpu_target_config_filename=%S/gpu_specs/%{GPU}.txtpb --split-input-file | FileCheck %s
 
 HloModule m

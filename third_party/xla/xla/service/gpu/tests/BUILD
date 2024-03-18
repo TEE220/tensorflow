@@ -1,6 +1,7 @@
 # Description: GPU-specific XLA tests. For example, codegen tests that
 # verify the IR emitted.
 
+load("@local_config_cuda//cuda:build_defs.bzl", "if_hermetic_cuda")
 load(
     "@local_config_rocm//rocm:build_defs.bzl",
     "if_rocm_is_configured",
@@ -20,6 +21,7 @@ load(
     "xla_cc_test",
 )
 load("//xla/tests:build_defs.bzl", "xla_test")
+load("//xla/tsl:tsl.bzl", "if_oss")
 load("//xla/tsl:tsl.default.bzl", "filegroup")
 
 package(
@@ -813,6 +815,7 @@ lit_test_suite(
         "--param=GPU=mi200",
     ]),
     cfg = "//xla:lit.cfg.py",
+    cuda_tools = if_oss(if_hermetic_cuda(["@cuda_nvcc//:ptxas"])),
     data = [
         "//xla/tools/hlo_opt:gpu_specs/a100_80.txtpb",
         "//xla/tools/hlo_opt:gpu_specs/a6000.txtpb",

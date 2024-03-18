@@ -10,6 +10,17 @@ def if_cuda(if_true, if_false = []):
         "//conditions:default": if_false,
     })
 
+def if_hermetic_cuda(if_true, if_false = []):
+    """Shorthand for select()'ing on whether we're building with hermetic CUDA.
+
+    Returns a select statement which evaluates to if_true if we're building
+    with hermetic CUDA enabled.  Otherwise, the select statement evaluates to if_false.
+    """
+    return select({
+        "@local_config_cuda//cuda:using_hermetic_cuda": if_true,
+        "//conditions:default": if_false,
+    })
+
 def if_cuda_clang(if_true, if_false = []):
    """Shorthand for select()'ing on wheteher we're building with cuda-clang.
 

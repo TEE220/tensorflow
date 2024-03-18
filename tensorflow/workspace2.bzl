@@ -15,7 +15,7 @@ load("//tensorflow/tools/toolchains/clang6:repo.bzl", "clang6_configure")
 load("//tensorflow/tools/toolchains/embedded/arm-linux:arm_linux_toolchain_configure.bzl", "arm_linux_toolchain_configure")
 load("//tensorflow/tools/toolchains/remote:configure.bzl", "remote_execution_configure")
 load("//tensorflow/tools/toolchains/remote_config:configs.bzl", "initialize_rbe_configs")
-load("//third_party:repo.bzl", "tf_http_archive", "tf_mirror_urls")
+load("//third_party:repo.bzl", "cuda_http_archive", "cuda_wheel", "tf_http_archive", "tf_mirror_urls")
 load("//third_party/absl:workspace.bzl", absl = "repo")
 load("//third_party/benchmark:workspace.bzl", benchmark = "repo")
 load("//third_party/clang_toolchain:cc_configure_clang.bzl", "cc_download_clang_toolchain")
@@ -29,7 +29,7 @@ load("//third_party/flatbuffers:workspace.bzl", flatbuffers = "repo")
 load("//third_party/FP16:workspace.bzl", FP16 = "repo")
 load("//third_party/gemmlowp:workspace.bzl", gemmlowp = "repo")
 load("//third_party/git:git_configure.bzl", "git_configure")
-load("//third_party/gpus:cuda_configure.bzl", "cuda_configure")
+load("//third_party/gpus:hermetic_cuda_configure.bzl", "hermetic_cuda_configure")
 load("//third_party/gpus:rocm_configure.bzl", "rocm_configure")
 load("//third_party/hexagon:workspace.bzl", hexagon_nn = "repo")
 load("//third_party/highwayhash:workspace.bzl", highwayhash = "repo")
@@ -41,7 +41,7 @@ load("//third_party/kissfft:workspace.bzl", kissfft = "repo")
 load("//third_party/libprotobuf_mutator:workspace.bzl", libprotobuf_mutator = "repo")
 load("//third_party/llvm:setup.bzl", "llvm_setup")
 load("//third_party/nasm:workspace.bzl", nasm = "repo")
-load("//third_party/nccl:nccl_configure.bzl", "nccl_configure")
+load("//third_party/nccl:hermetic_nccl_configure.bzl", "hermetic_nccl_configure")
 load("//third_party/opencl_headers:workspace.bzl", opencl_headers = "repo")
 load("//third_party/pasta:workspace.bzl", pasta = "repo")
 load("//third_party/py:python_configure.bzl", "python_configure")
@@ -103,9 +103,9 @@ def _tf_toolchains():
     # Note that we check the minimum bazel version in WORKSPACE.
     clang6_configure(name = "local_config_clang6")
     cc_download_clang_toolchain(name = "local_config_download_clang")
-    cuda_configure(name = "local_config_cuda")
+    hermetic_cuda_configure(name = "local_config_cuda")
     tensorrt_configure(name = "local_config_tensorrt")
-    nccl_configure(name = "local_config_nccl")
+    hermetic_nccl_configure(name = "local_config_nccl")
     git_configure(name = "local_config_git")
     syslibs_configure(name = "local_config_syslibs")
     python_configure(name = "local_config_python")
@@ -919,6 +919,422 @@ def _tf_repositories():
         version_conflict_policy = "pinned",
     )
 
+_CUDA_12_3_DISTRIBUTIVES_DICT = {
+    "cuda_cccl": {
+        "version": "12.3.101",
+        "x86_64-unknown-linux-gnu": {
+            "url": "https://developer.download.nvidia.com/compute/cuda/redist/cuda_cccl/linux-x86_64/cuda_cccl-linux-x86_64-12.3.101-archive.tar.xz",
+            "sha256": "dabd433bbef5f6d1b79f9a7eea909a3c273e20641f07a6a8667f42577462e34d",
+        },
+        "aarch64-unknown-linux-gnu": {
+            "url": "https://developer.download.nvidia.com/compute/cuda/redist/cuda_cccl/linux-sbsa/cuda_cccl-linux-sbsa-12.3.101-archive.tar.xz",
+            "sha256": "77b22b4b5c54d7649edd62253979e7290314de73f268df152c1c21811ae20084",
+        },
+    },
+    "cuda_cublas": {
+        "version": "12.3.4.1",
+        "x86_64-unknown-linux-gnu": {
+            "url": "https://developer.download.nvidia.com/compute/cuda/redist/libcublas/linux-x86_64/libcublas-linux-x86_64-12.3.4.1-archive.tar.xz",
+            "sha256": "2cb5c340f89d9bad6e0f1fb2a93a8a4962fe106eeb96d8887abd25c1552bd219",
+        },
+        "aarch64-unknown-linux-gnu": {
+            "url": "https://developer.download.nvidia.com/compute/cuda/redist/libcublas/linux-sbsa/libcublas-linux-sbsa-12.3.4.1-archive.tar.xz",
+            "sha256": "063f0e1a130b35ff662d21c2e05613122146bec2eab4818139eaee5a1c4d94bd",
+        },
+    },
+    "cuda_cudart": {
+        "version": "12.3.101",
+        "x86_64-unknown-linux-gnu": {
+            "url": "https://developer.download.nvidia.com/compute/cuda/redist/cuda_cudart/linux-x86_64/cuda_cudart-linux-x86_64-12.3.101-archive.tar.xz",
+            "sha256": "e37d478d1e7a10490d55fb87a5ef379a18c648f3010e1d3687c4298ddc3e9e19",
+        },
+        "aarch64-unknown-linux-gnu": {
+            "url": "https://developer.download.nvidia.com/compute/cuda/redist/cuda_cudart/linux-sbsa/cuda_cudart-linux-sbsa-12.3.101-archive.tar.xz",
+            "sha256": "131e62c60ba979f6870687db99a7537482f6df445915789d2a4799dc4e898b66",
+        },
+    },
+    "cuda_cudnn": {
+        "version": "8.9.7.29",
+        "x86_64-unknown-linux-gnu": {
+            "url": "https://developer.download.nvidia.com/compute/cudnn/redist/cudnn/linux-x86_64/cudnn-linux-x86_64-8.9.7.29_cuda12-archive.tar.xz",
+            "sha256": "475333625c7e42a7af3ca0b2f7506a106e30c93b1aa0081cd9c13efb6e21e3bb",
+        },
+        "aarch64-unknown-linux-gnu": {
+            "url": "https://developer.download.nvidia.com/compute/cudnn/redist/cudnn/linux-sbsa/cudnn-linux-sbsa-8.9.7.29_cuda12-archive.tar.xz",
+            "sha256": "e98b7c80010785e5d5ca01ee4ce9b5b0c8c73587ea6f8648be34d3f8d1d47bd1",
+        },
+    },
+    "cuda_cufft": {
+        "version": "11.0.12.1",
+        "x86_64-unknown-linux-gnu": {
+            "url": "https://developer.download.nvidia.com/compute/cuda/redist/libcufft/linux-x86_64/libcufft-linux-x86_64-11.0.12.1-archive.tar.xz",
+            "sha256": "db057e20e123124fa43e71c97276a8bb02bb14dcdd467e901f542217ca603a48",
+        },
+        "aarch64-unknown-linux-gnu": {
+            "url": "https://developer.download.nvidia.com/compute/cuda/redist/libcufft/linux-sbsa/libcufft-linux-sbsa-11.0.12.1-archive.tar.xz",
+            "sha256": "8bde00bd10cba318998d6aee5677b5094be55c6e77259581495f8b31450c3ec2",
+        },
+    },
+    "cuda_cupti": {
+        "version": "12.3.101",
+        "x86_64-unknown-linux-gnu": {
+            "url": "https://developer.download.nvidia.com/compute/cuda/redist/cuda_cupti/linux-x86_64/cuda_cupti-linux-x86_64-12.3.101-archive.tar.xz",
+            "sha256": "082c178c1b94671d2feac5f1cc241ea0e8b46860b1fd1aed530eca2d919e4360",
+        },
+        "aarch64-unknown-linux-gnu": {
+            "url": "https://developer.download.nvidia.com/compute/cuda/redist/cuda_cupti/linux-sbsa/cuda_cupti-linux-sbsa-12.3.101-archive.tar.xz",
+            "sha256": "a9417e7ef9af4e592099e372b0e6a1714d617866b2fc93c6832da2bdc07a707c",
+        },
+    },
+    "cuda_curand": {
+        "version": "10.3.4.107",
+        "x86_64-unknown-linux-gnu": {
+            "url": "https://developer.download.nvidia.com/compute/cuda/redist/libcurand/linux-x86_64/libcurand-linux-x86_64-10.3.4.107-archive.tar.xz",
+            "sha256": "ae34384e17563b2bb156f0491ef30a280298509a243e4c32e6edf507606bdb4d",
+        },
+        "aarch64-unknown-linux-gnu": {
+            "url": "https://developer.download.nvidia.com/compute/cuda/redist/libcurand/linux-sbsa/libcurand-linux-sbsa-10.3.4.107-archive.tar.xz",
+            "sha256": "eaf641c5f29b3e8984c489bdfbe57f5c64711446e5ff83486b9e2e3d1da92d37",
+        },
+    },
+    "cuda_cusolver": {
+        "version": "11.5.4.101",
+        "x86_64-unknown-linux-gnu": {
+            "url": "https://developer.download.nvidia.com/compute/cuda/redist/libcusolver/linux-x86_64/libcusolver-linux-x86_64-11.5.4.101-archive.tar.xz",
+            "sha256": "c271621cba76a12dd3cbddc491416f6cfea975bea695c418abb1f7fe281b8596",
+        },
+        "aarch64-unknown-linux-gnu": {
+            "url": "https://developer.download.nvidia.com/compute/cuda/redist/libcusolver/linux-sbsa/libcusolver-linux-sbsa-11.5.4.101-archive.tar.xz",
+            "sha256": "66cfb75fa2941b13b0ac287230f38b686369f9a8eb1eec01690095daf4205939",
+        },
+    },
+    "cuda_cusparse": {
+        "version": "12.2.0.103",
+        "x86_64-unknown-linux-gnu": {
+            "url": "https://developer.download.nvidia.com/compute/cuda/redist/libcusparse/linux-x86_64/libcusparse-linux-x86_64-12.2.0.103-archive.tar.xz",
+            "sha256": "2705bea3c1ae1f0eeb5850a32b9af58bd9d3ecacca6cd2a557236e11a1c46efa",
+        },
+        "aarch64-unknown-linux-gnu": {
+            "url": "https://developer.download.nvidia.com/compute/cuda/redist/libcusparse/linux-sbsa/libcusparse-linux-sbsa-12.2.0.103-archive.tar.xz",
+            "sha256": "f356b0fff937946e661582362c754bec29314191613d26867db2b1625c06e208",
+        },
+    },
+    "cuda_nccl": {
+        "x86_64-unknown-linux-gnu": {
+            "url": "https://files.pythonhosted.org/packages/38/00/d0d4e48aef772ad5aebcf70b73028f88db6e5640b36c38e90445b7a57c45/nvidia_nccl_cu12-2.19.3-py3-none-manylinux1_x86_64.whl",
+            "sha256": "a9734707a2c96443331c1e48c717024aa6678a0e2a4cb66b2c364d18cee6b48d",
+        },
+        "aarch64-unknown-linux-gnu": {
+            "url": "https://files.pythonhosted.org/packages/c1/bb/d09dda47c881f9ff504afd6f9ca4f502ded6d8fc2f572cacc5e39da91c28/nvidia_nccl_cu12-2.20.5-py3-none-manylinux2014_aarch64.whl",
+            "sha256": "1fc150d5c3250b170b29410ba682384b14581db722b2531b0d8d33c595f33d01",
+        },
+    },
+    "cuda_nvcc": {
+        "version": "12.3.107",
+        "x86_64-unknown-linux-gnu": {
+            "url": "https://developer.download.nvidia.com/compute/cuda/redist/cuda_nvcc/linux-x86_64/cuda_nvcc-linux-x86_64-12.3.107-archive.tar.xz",
+            "sha256": "65dba017ed1dbbe819a6ccc1841a4add4dfbc652603aa89be773888e82a5629e",
+        },
+        "aarch64-unknown-linux-gnu": {
+            "url": "https://developer.download.nvidia.com/compute/cuda/redist/cuda_nvcc/linux-sbsa/cuda_nvcc-linux-sbsa-12.3.107-archive.tar.xz",
+            "sha256": "0b85f7eee17788abbd170b0b493c74ce2e9fd5a9604461b99c2c378165e1083b",
+        },
+    },
+    "cuda_nvjitlink": {
+        "version": "12.3.101",
+        "x86_64-unknown-linux-gnu": {
+            "url": "https://developer.download.nvidia.com/compute/cuda/redist/libnvjitlink/linux-x86_64/libnvjitlink-linux-x86_64-12.3.101-archive.tar.xz",
+            "sha256": "c66ebf27cf9bcfc584918c98eb7683ea2f5ab68c9c95c361ccb9e27d0520df13",
+        },
+        "aarch64-unknown-linux-gnu": {
+            "url": "https://developer.download.nvidia.com/compute/cuda/redist/libnvjitlink/linux-sbsa/libnvjitlink-linux-sbsa-12.3.101-archive.tar.xz",
+            "sha256": "cae34a104a8b61f061ba5f133792c28e2f6f6c0b6a726ff15c225a58649816d2",
+        },
+    },
+    "cuda_nvml": {
+        "version": "12.3.101",
+        "x86_64-unknown-linux-gnu": {
+            "url": "https://developer.download.nvidia.com/compute/cuda/redist/cuda_nvml_dev/linux-x86_64/cuda_nvml_dev-linux-x86_64-12.3.101-archive.tar.xz",
+            "sha256": "34ab12792d46a839012236608ec446a13f6e7775556f9122a7c33bc742b3b29d",
+        },
+        "aarch64-unknown-linux-gnu": {
+            "url": "https://developer.download.nvidia.com/compute/cuda/redist/cuda_nvml_dev/linux-sbsa/cuda_nvml_dev-linux-sbsa-12.3.101-archive.tar.xz",
+            "sha256": "e14f15f6eb8dc25d37872d713bfb40530b67b68e7b8441078310f40a3aec121f",
+        },
+    },
+    "cuda_nvprune": {
+        "version": "12.3.101",
+        "x86_64-unknown-linux-gnu": {
+            "url": "https://developer.download.nvidia.com/compute/cuda/redist/cuda_nvprune/linux-x86_64/cuda_nvprune-linux-x86_64-12.3.101-archive.tar.xz",
+            "sha256": "61ac07de3c24e666932f61467ca79f8ac39560b04ea43b0c270e36bae64cd923",
+        },
+        "aarch64-unknown-linux-gnu": {
+            "url": "https://developer.download.nvidia.com/compute/cuda/redist/cuda_nvprune/linux-sbsa/cuda_nvprune-linux-sbsa-12.3.101-archive.tar.xz",
+            "sha256": "bc91e618a3548631ee6a7990d615987ffd480a92b35a73bbb3db5c283d9506d2",
+        },
+    },
+    "cuda_nvtx": {
+        "version": "12.3.101",
+        "x86_64-unknown-linux-gnu": {
+            "url": "https://developer.download.nvidia.com/compute/cuda/redist/cuda_nvtx/linux-x86_64/cuda_nvtx-linux-x86_64-12.3.101-archive.tar.xz",
+            "sha256": "cd21f7fc329337f3c1be888e68aef5d580f243b5cc9a63d392cdb08e49be1689",
+        },
+        "aarch64-unknown-linux-gnu": {
+            "url": "https://developer.download.nvidia.com/compute/cuda/redist/cuda_nvtx/linux-sbsa/cuda_nvtx-linux-sbsa-12.3.101-archive.tar.xz",
+            "sha256": "69535a21d1db11e904eaddfa6861bec8203f5f4e97fe9b191ab35ca7ba5e5e1e",
+        },
+    },
+}
+
+_CUDA_12_1_DISTRIBUTIVES_DICT = {
+    "cuda_cccl": {
+        "version": "12.1.109",
+        "x86_64-unknown-linux-gnu": {
+            "url": "https://developer.download.nvidia.com/compute/cuda/redist/cuda_cccl/linux-x86_64/cuda_cccl-linux-x86_64-12.1.109-archive.tar.xz",
+            "sha256": "b84ef3ec3dc1b4891267be25846f0c3ed7f9fa84154d59eba805402b86991baa",
+        },
+    },
+    "cuda_cublas": {
+        "version": "12.1.3.1",
+        "x86_64-unknown-linux-gnu": {
+            "url": "https://developer.download.nvidia.com/compute/cuda/redist/libcublas/linux-x86_64/libcublas-linux-x86_64-12.1.3.1-archive.tar.xz",
+            "sha256": "90044d7ad8c44f33cb670c1fe6f2c22246db6c22c2db22c7a172bb61cccb438c",
+        },
+    },
+    "cuda_cudart": {
+        "version": "12.1.105",
+        "x86_64-unknown-linux-gnu": {
+            "url": "https://developer.download.nvidia.com/compute/cuda/redist/cuda_cudart/linux-x86_64/cuda_cudart-linux-x86_64-12.1.105-archive.tar.xz",
+            "sha256": "6096ec878c8c443258d39c6e9cf2decef127f8aa8da594fdc5a336d047ab6bd9",
+        },
+    },
+    "cuda_cudnn": {
+        "version": "8.8.1.3",
+        "x86_64-unknown-linux-gnu": {
+            "url": "https://developer.download.nvidia.com/compute/cudnn/redist/cudnn/linux-x86_64/cudnn-linux-x86_64-8.8.1.3_cuda12-archive.tar.xz",
+            "sha256": "79d77a769c7e7175abc7b5c2ed5c494148c0618a864138722c887f95c623777c",
+        },
+    },
+    "cuda_cufft": {
+        "version": "11.0.12.1",
+        "x86_64-unknown-linux-gnu": {
+            "url": "https://developer.download.nvidia.com/compute/cuda/redist/libcufft/linux-x86_64/libcufft-linux-x86_64-11.0.2.54-archive.tar.xz",
+            "sha256": "7136c1d42c7d1fbc29db2f401c8d5f169d4b81cff4d017946d3e6f45077e7b14",
+        },
+    },
+    "cuda_cupti": {
+        "version": "12.1.105",
+        "x86_64-unknown-linux-gnu": {
+            "url": "https://developer.download.nvidia.com/compute/cuda/redist/cuda_cupti/linux-x86_64/cuda_cupti-linux-x86_64-12.1.105-archive.tar.xz",
+            "sha256": "397594a200619aa748bdd9e1c95bbf01bfddbb00624940c5ed26e43df1bec363",
+        },
+    },
+    "cuda_curand": {
+        "version": "10.3.2.106",
+        "x86_64-unknown-linux-gnu": {
+            "url": "https://developer.download.nvidia.com/compute/cuda/redist/libcurand/linux-x86_64/libcurand-linux-x86_64-10.3.2.106-archive.tar.xz",
+            "sha256": "9941216fad2d419e6172dbd2ee431d77effe671065c08490782fc286ebb364de",
+        },
+    },
+    "cuda_cusolver": {
+        "version": "11.4.5.107",
+        "x86_64-unknown-linux-gnu": {
+            "url": "https://developer.download.nvidia.com/compute/cuda/redist/libcusolver/linux-x86_64/libcusolver-linux-x86_64-11.4.5.107-archive.tar.xz",
+            "sha256": "7169970001e71fbd8ff2678830af9a90edd23d0165f53c829c00a6decfe464f8",
+        },
+    },
+    "cuda_cusparse": {
+        "version": "12.1.0.106",
+        "x86_64-unknown-linux-gnu": {
+            "url": "https://developer.download.nvidia.com/compute/cuda/redist/libcusparse/linux-x86_64/libcusparse-linux-x86_64-12.1.0.106-archive.tar.xz",
+            "sha256": "ae1f604d6aa753b156e3072519a29938b74b37b727c7bd78fab73add78f83907",
+        },
+    },
+    "cuda_nccl": {
+        "x86_64-unknown-linux-gnu": {
+            "url": "https://files.pythonhosted.org/packages/38/00/d0d4e48aef772ad5aebcf70b73028f88db6e5640b36c38e90445b7a57c45/nvidia_nccl_cu12-2.19.3-py3-none-manylinux1_x86_64.whl",
+            "sha256": "a9734707a2c96443331c1e48c717024aa6678a0e2a4cb66b2c364d18cee6b48d",
+        },
+        "aarch64-unknown-linux-gnu": {
+            "url": "https://files.pythonhosted.org/packages/c1/bb/d09dda47c881f9ff504afd6f9ca4f502ded6d8fc2f572cacc5e39da91c28/nvidia_nccl_cu12-2.20.5-py3-none-manylinux2014_aarch64.whl",
+            "sha256": "1fc150d5c3250b170b29410ba682384b14581db722b2531b0d8d33c595f33d01",
+        },
+    },
+    "cuda_nvcc": {
+        "version": "12.1.105",
+        "x86_64-unknown-linux-gnu": {
+            "url": "https://developer.download.nvidia.com/compute/cuda/redist/cuda_nvcc/linux-x86_64/cuda_nvcc-linux-x86_64-12.1.105-archive.tar.xz",
+            "sha256": "4c0e6a79a67fb86489be9e0976cc22127ca2ae160b1ad22ac4742d52f0ebe32d",
+        },
+    },
+    "cuda_nvjitlink": {
+        "version": "12.1.105",
+        "x86_64-unknown-linux-gnu": {
+            "url": "https://developer.download.nvidia.com/compute/cuda/redist/libnvjitlink/linux-x86_64/libnvjitlink-linux-x86_64-12.1.105-archive.tar.xz",
+            "sha256": "21ee6206cf9509e1c1c31be918b1971da8eb1e7c5492804ecd6750105c7db6b4",
+        },
+    },
+    "cuda_nvml": {
+        "version": "12.1.105",
+        "x86_64-unknown-linux-gnu": {
+            "url": "https://developer.download.nvidia.com/compute/cuda/redist/cuda_nvml_dev/linux-x86_64/cuda_nvml_dev-linux-x86_64-12.1.105-archive.tar.xz",
+            "sha256": "20ae775b1c78a107fca1cc52f2cba35f55e5296356fe0678937212f70923d77f",
+        },
+    },
+    "cuda_nvprune": {
+        "version": "12.1.105",
+        "x86_64-unknown-linux-gnu": {
+            "url": "https://developer.download.nvidia.com/compute/cuda/redist/cuda_nvprune/linux-x86_64/cuda_nvprune-linux-x86_64-12.1.105-archive.tar.xz",
+            "sha256": "aaf3b1f67bb3d6cafc1ea2b9519ec4285a8312be0f44402c7ac292a6a0d23163",
+        },
+    },
+    "cuda_nvtx": {
+        "version": "12.1.105",
+        "x86_64-unknown-linux-gnu": {
+            "url": "https://developer.download.nvidia.com/compute/cuda/redist/cuda_nvtx/linux-x86_64/cuda_nvtx-linux-x86_64-12.1.105-archive.tar.xz",
+            "sha256": "8ca2c72c247bf10ca10653637c60e792a1249cbeecc1d817c4815d98b45cf1c2",
+        },
+    },
+}
+
+def _cuda_distributives(cuda_distributives_dict):
+    artifacts_dict = {}
+    for cuda_version, cuda_distributives_info in cuda_distributives_dict.items():
+        for distributive_name, distributive_info in cuda_distributives_info.items():
+            if distributive_name not in artifacts_dict.keys():
+                if distributive_name == "cuda_nccl":
+                    artifacts_dict[distributive_name] = {"sha256_dict": {}, "url_dict": {}}
+                else:
+                    artifacts_dict[distributive_name] = {"sha256_dict": {}, "version_dict": {}, "url_dict": {}}
+                    distributive_version = distributive_info["version"]
+            if distributive_name != "cuda_nccl":
+                artifacts_dict[distributive_name]["version_dict"][cuda_version] = distributive_version
+            for arch in ["x86_64-unknown-linux-gnu", "aarch64-unknown-linux-gnu"]:
+                if arch in distributive_info.keys():
+                    cuda_version_to_arch_key = "%s-%s" % (cuda_version, arch)
+                    artifacts_dict[distributive_name]["sha256_dict"][cuda_version_to_arch_key] = distributive_info[arch]["sha256"]
+                    artifacts_dict[distributive_name]["url_dict"][cuda_version_to_arch_key] = distributive_info[arch]["url"]
+
+    cuda_http_archive(
+        name = "cuda_cccl",
+        sha256_dict = artifacts_dict["cuda_cccl"]["sha256_dict"],
+        build_file = Label("//third_party/gpus/cuda:cuda_cccl.BUILD"),
+        version_dict = artifacts_dict["cuda_cccl"]["version_dict"],
+        url_dict = artifacts_dict["cuda_cccl"]["url_dict"],
+    )
+
+    cuda_http_archive(
+        name = "cuda_cublas",
+        sha256_dict = artifacts_dict["cuda_cublas"]["sha256_dict"],
+        build_template = Label("//third_party/gpus/cuda:cuda_cublas.BUILD.tpl"),
+        version_dict = artifacts_dict["cuda_cublas"]["version_dict"],
+        url_dict = artifacts_dict["cuda_cublas"]["url_dict"],
+    )
+
+    cuda_http_archive(
+        name = "cuda_cudart",
+        sha256_dict = artifacts_dict["cuda_cudart"]["sha256_dict"],
+        build_template = Label("//third_party/gpus/cuda:cuda_cudart.BUILD.tpl"),
+        version_dict = artifacts_dict["cuda_cudart"]["version_dict"],
+        url_dict = artifacts_dict["cuda_cudart"]["url_dict"],
+    )
+
+    cuda_http_archive(
+        name = "cuda_cudnn",
+        sha256_dict = artifacts_dict["cuda_cudnn"]["sha256_dict"],
+        build_template = Label("//third_party/gpus/cuda:cuda_cudnn.BUILD.tpl"),
+        version_dict = artifacts_dict["cuda_cudnn"]["version_dict"],
+        url_dict = artifacts_dict["cuda_cudnn"]["url_dict"],
+    )
+
+    cuda_http_archive(
+        name = "cuda_cufft",
+        sha256_dict = artifacts_dict["cuda_cufft"]["sha256_dict"],
+        build_template = Label("//third_party/gpus/cuda:cuda_cufft.BUILD.tpl"),
+        version_dict = artifacts_dict["cuda_cufft"]["version_dict"],
+        url_dict = artifacts_dict["cuda_cufft"]["url_dict"],
+    )
+
+    cuda_http_archive(
+        name = "cuda_cupti",
+        sha256_dict = artifacts_dict["cuda_cupti"]["sha256_dict"],
+        build_template = Label("//third_party/gpus/cuda:cuda_cupti.BUILD.tpl"),
+        version_dict = artifacts_dict["cuda_cupti"]["version_dict"],
+        url_dict = artifacts_dict["cuda_cupti"]["url_dict"],
+    )
+
+    cuda_http_archive(
+        name = "cuda_curand",
+        sha256_dict = artifacts_dict["cuda_curand"]["sha256_dict"],
+        build_template = Label("//third_party/gpus/cuda:cuda_curand.BUILD.tpl"),
+        version_dict = artifacts_dict["cuda_curand"]["version_dict"],
+        url_dict = artifacts_dict["cuda_curand"]["url_dict"],
+    )
+
+    cuda_http_archive(
+        name = "cuda_cusolver",
+        sha256_dict = artifacts_dict["cuda_cusolver"]["sha256_dict"],
+        build_template = Label("//third_party/gpus/cuda:cuda_cusolver.BUILD.tpl"),
+        version_dict = artifacts_dict["cuda_cusolver"]["version_dict"],
+        url_dict = artifacts_dict["cuda_cusolver"]["url_dict"],
+    )
+
+    cuda_http_archive(
+        name = "cuda_cusparse",
+        sha256_dict = artifacts_dict["cuda_cusparse"]["sha256_dict"],
+        build_template = Label("//third_party/gpus/cuda:cuda_cusparse.BUILD.tpl"),
+        version_dict = artifacts_dict["cuda_cusparse"]["version_dict"],
+        url_dict = artifacts_dict["cuda_cusparse"]["url_dict"],
+    )
+
+    cuda_wheel(
+        name = "cuda_nccl",
+        sha256_dict = artifacts_dict["cuda_nccl"]["sha256_dict"],
+        url_dict = artifacts_dict["cuda_nccl"]["url_dict"],
+        build_file = Label("//third_party/gpus/cuda:cuda_nccl.BUILD"),
+        strip_prefix = "nvidia/nccl",
+    )
+
+    cuda_http_archive(
+        name = "cuda_nvcc",
+        sha256_dict = artifacts_dict["cuda_nvcc"]["sha256_dict"],
+        build_file = Label("//third_party/gpus/cuda:cuda_nvcc.BUILD"),
+        version_dict = artifacts_dict["cuda_nvcc"]["version_dict"],
+        url_dict = artifacts_dict["cuda_nvcc"]["url_dict"],
+    )
+
+    cuda_http_archive(
+        name = "cuda_nvjitlink",
+        sha256_dict = artifacts_dict["cuda_nvjitlink"]["sha256_dict"],
+        build_template = Label("//third_party/gpus/cuda:cuda_nvjitlink.BUILD.tpl"),
+        version_dict = artifacts_dict["cuda_nvjitlink"]["version_dict"],
+        url_dict = artifacts_dict["cuda_nvjitlink"]["url_dict"],
+    )
+
+    cuda_http_archive(
+        name = "cuda_nvml",
+        sha256_dict = artifacts_dict["cuda_nvml"]["sha256_dict"],
+        build_file = Label("//third_party/gpus/cuda:cuda_nvml.BUILD"),
+        version_dict = artifacts_dict["cuda_nvml"]["version_dict"],
+        url_dict = artifacts_dict["cuda_nvml"]["url_dict"],
+    )
+
+    cuda_http_archive(
+        name = "cuda_nvprune",
+        sha256_dict = artifacts_dict["cuda_nvprune"]["sha256_dict"],
+        build_file = Label("//third_party/gpus/cuda:cuda_nvprune.BUILD"),
+        version_dict = artifacts_dict["cuda_nvprune"]["version_dict"],
+        url_dict = artifacts_dict["cuda_nvprune"]["url_dict"],
+    )
+
+    cuda_http_archive(
+        name = "cuda_nvtx",
+        sha256_dict = artifacts_dict["cuda_nvtx"]["sha256_dict"],
+        build_file = Label("//third_party/gpus/cuda:cuda_nvtx.BUILD"),
+        version_dict = artifacts_dict["cuda_nvtx"]["version_dict"],
+        url_dict = artifacts_dict["cuda_nvtx"]["url_dict"],
+    )
+
 def workspace():
     # Check the bazel version before executing any repository rules, in case
     # those rules rely on the version we require here.
@@ -936,6 +1352,10 @@ def workspace():
     # don't already exist (at least if the external repository macros were
     # written according to common practice to query native.existing_rule()).
     _tf_repositories()
+    _cuda_distributives(cuda_distributives_dict = {
+        "12.3": _CUDA_12_3_DISTRIBUTIVES_DICT,
+        "12.1": _CUDA_12_1_DISTRIBUTIVES_DICT,
+    })
 
     tfrt_dependencies()
 

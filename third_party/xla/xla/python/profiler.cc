@@ -17,6 +17,7 @@ limitations under the License.
 
 #include <functional>
 #include <memory>
+#include <optional>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -32,6 +33,7 @@ limitations under the License.
 #include "xla/pjrt/c/pjrt_c_api_profiler_extension.h"
 #include "xla/pjrt/exceptions.h"
 #include "xla/pjrt/status_casters.h"
+#include "xla/python/pgle_session.h"
 #include "xla/python/xplane_to_profile_instructions.h"
 #include "tsl/platform/macros.h"
 #include "tsl/platform/protobuf.h"  // IWYU pragma: keep
@@ -296,6 +298,27 @@ void BuildProfilerSubmodule(nb::module_& m) {
     std::string out = GetFdoProfile(std::string(xspace.c_str(), xspace.size()));
     return nb::bytes(out.data(), out.size());
   });
+
+  nb::class_<xla::PGLESessionRunner> profile_runner(std::move(profiler),
+                                                    "PGLESessionRunner");
+  profile_runner.def("start", &xla::PGLESessionRunner::Start)
+      .def("stop", &xla::PGLESessionRunner::Stop)
+      .def("is_fdo_consumed", &xla::PGLESessionRunner::IsFdoConsumed)
+      .def("consume_fdo_profile",
+           [](xla::PGLESessionRunner& runner) -> nb::object {
+             std::optional<std::string> fdo_profile =
+                 runner.ConsumeFdoProfile();
+             if (fdo_profile.has_value()) {
+               return nb::bytes(fdo_profile->data(), fdo_profile->size());
+             }
+             return nb::none();
+           });
+  m.def(
+      "create_profile_runner",
+      [](int retries) -> xla::PGLESessionRunner {
+        return xla::PGLESessionRunner(retries);
+      },
+      nb::arg("retries"));
 }
 
 }  // namespace xla

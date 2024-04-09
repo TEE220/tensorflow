@@ -1608,38 +1608,46 @@ absl::StatusOr<bool> ProcessShardingInstruction(
             Cast<HloCustomCallInstruction>(instruction)->opaque(),
             &unspec_dims));
 
-        // Replace it with a copy node so that it does not need special
-        // handling.
-        if (replace_sharding_with_copy) {
+        // Replace the sharding instruction with a copy node so that it does not
+        // need special handling.
+        if (replace_sharding_with_copy && !original_sharding.IsShardGroup()) {
           auto copy = computation->AddInstruction(HloInstruction::CreateUnary(
               instruction->shape(), HloOpcode::kCopy,
               instruction->mutable_operand(0)));
           TF_RETURN_IF_ERROR(
               computation->ReplaceInstruction(instruction, copy));
-          // Add into shard group.
-          HloSharding sharding =
-              process_shard_group_instruction(copy, original_sharding);
-          copy->set_sharding(sharding);
+          copy->set_sharding(original_sharding);
           instruction = copy;
           changed = true;
         }
-        // Strip the sharding of the shard group related annotations.
         if (!unspec_dims.empty()) {
           absl::c_sort(unspec_dims);
           unspecified_dims->emplace(instruction, std::move(unspec_dims));
         } else if (!instruction->operand(0)->has_sharding()) {
           HloSharding sharding = original_sharding;
-          if (instruction->operand(0)->opcode() != HloOpcode::kParameter ||
-              (allow_spmd_sharding_propagation_to_parameters_vector &&
-               allow_spmd_sharding_propagation_to_parameters_vector->size() ==
-                   module->entry_computation()->num_parameters() &&
-               allow_spmd_sharding_propagation_to_parameters_vector->at(
-                   instruction->operand(0)->parameter_number()))) {
+          if (original_sharding.IsShardGroup()) {
+            CHECK(
+                instruction->operand(0)->opcode() != HloOpcode::kParameter ||
+                (allow_spmd_sharding_propagation_to_parameters_vector &&
+                 allow_spmd_sharding_propagation_to_parameters_vector->size() ==
+                     module->entry_computation()->num_parameters() &&
+                 allow_spmd_sharding_propagation_to_parameters_vector->at(
+                     instruction->operand(0)->parameter_number())));
             // Add operand(i.e. the annotated op) into shard group.
             sharding = process_shard_group_instruction(
-                instruction->mutable_operand(0), sharding);
+                instruction->mutable_operand(0), original_sharding);
           }
           instruction->mutable_operand(0)->set_sharding(std::move(sharding));
+        } else if (original_sharding.IsShardGroup()) {
+          CHECK(original_sharding.IsUnknown());
+          // Fold the sharding instruction's shard group attributes into its
+          // operand.
+          HloSharding sharding = process_shard_group_instruction(
+              instruction->mutable_operand(0), original_sharding);
+        }
+        if (original_sharding.IsShardGroup()) {
+          TF_RETURN_IF_ERROR(computation->ReplaceInstruction(
+              instruction, instruction->mutable_operand(0)));
         }
       } else if (instruction->has_sharding()) {
         // Handle shard group in parameters/outputs.

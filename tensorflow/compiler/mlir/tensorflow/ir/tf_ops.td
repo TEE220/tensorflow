@@ -2431,4 +2431,121 @@ def TF_StoreMinibatchStatisticsInFdoOp : TF_Op<"StoreMinibatchStatisticsInFdo", 
   let results = (outs
   );
 }
+
+def TF_ConvertToListOfSparseCoreCooTensorsOp : TF_Op<"ConvertToListOfSparseCoreCooTensors", [Pure, SameVariadicOperandSize, SameVariadicResultSize]> {
+  let summary = "An op which converts the sparse/ragged/dense tensor into a list of COO tensor for each SparseCore.";
+
+  let arguments = (ins
+    TF_Int32Tensor:$indices_or_row_splits,
+    TF_Int32Tensor:$values,
+    TF_Float32Tensor:$weights,
+
+    ConfinedAttr<I64Attr, [IntMinValue<1>]>:$sample_count,
+    ConfinedAttr<I64Attr, [IntMinValue<0>]>:$row_offset,
+    ConfinedAttr<I64Attr, [IntMinValue<0>]>:$col_offset,
+    ConfinedAttr<I64Attr, [IntMinValue<0>]>:$col_shift,
+    ConfinedAttr<I64Attr, [IntMinValue<1>]>:$num_sc_shards,
+    ConfinedAttr<I64Attr, [IntMinValue<1>]>:$stacked_table_sample_count,
+    StrAttr:$combiner
+  );
+
+  let results = (outs
+    Variadic<TF_Int32Tensor>:$row_ids_list,
+    Variadic<TF_Int32Tensor>:$col_ids_list,
+    Variadic<TF_Float32Tensor>:$gains_list
+  );
+
+  TF_DerivedResultSizeAttr num_sc_per_chip = TF_DerivedResultSizeAttr<0>;
+}
+
+
+def TF_SortListOfSparseCoreCooTensorsOp : TF_Op<"SortListOfSparseCoreCooTensors",  [Pure, SameVariadicOperandSize]> {
+  let summary = "An op which sorts each COO tensors in the list by which SparseCore the id will go to. This op should be used along with the ConvertToSparseCoreCsrWrappedCooTensorOp.";
+
+  let arguments = (ins
+    Variadic<TF_Int32Tensor>:$row_ids_list,
+    Variadic<TF_Int32Tensor>:$col_ids_list,
+    Variadic<TF_Float32Tensor>:$gains_list,
+
+    I64ArrayAttr:$sample_count_list,
+    I64ArrayAttr:$col_offset_list,
+    ConfinedAttr<I64Attr, [IntMinValue<1>]>:$num_replica,
+    ConfinedAttr<I64Attr, [IntMinValue<1>]>:$table_vocab_size,
+    ConfinedAttr<I64Attr, [IntMinValue<1>]>:$feature_width,
+    ConfinedAttr<I64Attr, [IntMinValue<1>]>:$num_sc_per_chip,
+    ConfinedAttr<I64Attr, [IntMinValue<1>]>:$max_ids_per_sparse_core,
+    ConfinedAttr<I64Attr, [IntMinValue<1>]>:$max_unique_ids_per_sparse_core,
+    StrAttr:$table_name
+  );
+
+  let results = (outs
+    TF_Int32Tensor:$sorted_row_ids,
+    TF_Int32Tensor:$sorted_col_ids,
+    TF_Float32Tensor:$sorted_gains,
+    TF_Int32Tensor:$id_counts
+  );
+
+  // N represents the number of COO tensors in the list.
+  TF_DerivedOperandSizeAttr N = TF_DerivedOperandSizeAttr<1>;
+}
+
+
+def TF_ConvertToSparseCoreCsrWrappedCooTensorOp : TF_Op<"ConvertToSparseCoreCsrWrappedCooTensorOp", [Pure, SameVariadicOperandSize]> {
+  let summary = "An op which converts the sorted coo tensor into sparse core CSR wrapped COO format.";
+
+  let arguments = (ins
+    Variadic<TF_Int32Tensor>:$sorted_row_ids_list,
+    Variadic<TF_Int32Tensor>:$sorted_col_ids_list,
+    Variadic<TF_Float32Tensor>:$sorted_gains_list,
+    Variadic<TF_Int32Tensor>:$id_counts_list,
+    TF_Int64Tensor:$splits,
+
+    ConfinedAttr<I64Attr, [IntMinValue<1>]>:$sample_count_per_sc,
+    ConfinedAttr<I64Attr, [IntMinValue<1>]>:$num_replica,
+    ConfinedAttr<I64Attr, [IntMinValue<1>]>:$max_minibatches_per_sc,
+    ConfinedAttr<I64Attr, [IntMinValue<1>]>:$max_ids_per_chip_per_sample,
+    ConfinedAttr<I64Attr, [IntMinValue<1>]>:$table_vocab_size,
+    ConfinedAttr<I64Attr, [IntMinValue<1>]>:$feature_width,
+    StrAttr:$table_name,
+    BoolAttr:$allow_id_dropping
+  );
+
+  let results = (outs
+    TF_Int32Tensor:$row_pointers,
+    TF_Int32Tensor:$sorted_sample_ids,
+    TF_Int32Tensor:$sorted_token_ids,
+    TF_Float32Tensor:$sorted_gains,
+    TF_Int32Tensor:$row_pointers_unpadded_size,
+    TF_Int32Tensor:$ids_unpadded_size,
+    TF_Int32Tensor:$num_minibatches_per_sc
+  );
+
+  TF_DerivedOperandSizeAttr num_sc_per_chip = TF_DerivedOperandSizeAttr<1>;
+}
+
+
+def TF_GetStatsFromListOfSparseCoreCooTensorsOp : TF_Op<"GetStatsFromListOfSparseCoreCooTensors",  [Pure, SameVariadicOperandSize]> {
+  let summary = "An op which computes the max_ids/uniques for a given table.";
+
+  let arguments = (ins
+    Variadic<TF_Int32Tensor>:$row_ids_list,
+    Variadic<TF_Int32Tensor>:$col_ids_list,
+    Variadic<TF_Float32Tensor>:$gains_list,
+
+    I64ArrayAttr:$sample_count_list,
+    I64ArrayAttr:$col_offset_list,
+    ConfinedAttr<I64Attr, [IntMinValue<1>]>:$num_replica,
+    ConfinedAttr<I64Attr, [IntMinValue<1>]>:$table_vocab_size,
+    ConfinedAttr<I64Attr, [IntMinValue<1>]>:$feature_width,
+    ConfinedAttr<I64Attr, [IntMinValue<1>]>:$num_sc_per_chip,
+    StrAttr:$table_name
+  );
+
+  let results = (outs
+    TF_Int32Tensor:$max_ids_per_sparse_core,
+    TF_Int32Tensor:$max_unique_ids_per_sparse_core
+  );
+
+  TF_DerivedOperandSizeAttr N = TF_DerivedOperandSizeAttr<1>;
+}
 #endif // TF_OPS

@@ -25,6 +25,7 @@ limitations under the License.
 #include "absl/strings/str_cat.h"
 #include "absl/strings/string_view.h"
 #include "absl/types/span.h"
+#include "third_party/protobuf/text_format.h"
 #include "tensorflow/compiler/mlir/tfrt/transforms/ifrt/ifrt_types.h"
 #include "xla/python/ifrt/future.h"
 #include "xla/xla_data.pb.h"
@@ -267,8 +268,8 @@ absl::Status MlrtIfrtLoadVariableKernel::InvokeHelper() {
   VariableDeviceShardingConfigProto sharding_config;
   absl::string_view sharding_config_text = sharding_config_proto_text();
 
-  if (!tensorflow::protobuf::TextFormat::ParseFromString(sharding_config_text,
-                                                         &sharding_config)) {
+  if (!tensorflow::protobuf::TextFormat::ParseFromString(
+          std::string(sharding_config_text), &sharding_config)) {  // NOLINT
     return absl::InvalidArgumentError(
         absl::StrCat("Attribute: ", sharding_config_text, " cannot be parsed"));
   }

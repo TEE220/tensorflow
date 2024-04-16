@@ -85,10 +85,11 @@ absl::Status QuantizeWeightOnlyPtq(
   }
 
   TF_ASSIGN_OR_RETURN(
-      ModuleOp module_op,
+      auto module,
       ImportSavedModel(src_saved_model_path, signature_keys, tags,
                        quantization_config, WeightOnlyPtqComponent::kName,
                        *function_aliases, *ctx));
+  auto module_op = *module;
 
   WeightOnlyPtqComponent weight_only_ptq_component(ctx.get());
   TF_ASSIGN_OR_RETURN(

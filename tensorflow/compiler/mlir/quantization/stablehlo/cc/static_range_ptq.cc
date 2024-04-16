@@ -29,6 +29,7 @@ limitations under the License.
 #include "absl/strings/string_view.h"
 #include "mlir/IR/BuiltinOps.h"  // from @llvm-project
 #include "mlir/IR/MLIRContext.h"  // from @llvm-project
+#include "mlir/IR/OwningOpRef.h"  // from @llvm-project
 #include "mlir/Pass/PassManager.h"  // from @llvm-project
 #include "tensorflow/compiler/mlir/quantization/stablehlo/cc/calibration/component.h"
 #include "tensorflow/compiler/mlir/quantization/stablehlo/cc/component.h"
@@ -105,10 +106,11 @@ absl::Status QuantizeStaticRangePtq(
   }
 
   TF_ASSIGN_OR_RETURN(
-      ModuleOp module_op,
+      OwningOpRef<ModuleOp> module,
       ImportSavedModel(src_saved_model_path, signature_keys, tags,
                        quantization_config, PreCalibrationComponent::kName,
                        *function_aliases, *ctx));
+  auto module_op = *module;
 
   StaticRangePtqComponent static_range_ptq_component(
       ctx.get(), &py_function_library, src_saved_model_path, signature_keys,

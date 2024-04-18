@@ -1,6 +1,9 @@
 # PJRT C API changelog
 
-## 0.49
+## 0.50
+* Added ``PJRT_Extension_Type::PJRT_Extension_Type_Layouts``.
+
+## 0.49 (Apr 19, 2024)
 * Added ``PJRT_Extension_Type::PJRT_Extension_Type_Stream``.
 
 ## 0.48 (Apr 10, 2024)

@@ -30,6 +30,7 @@ limitations under the License.
 #include "absl/synchronization/mutex.h"
 #include "xla/pjrt/c/pjrt_c_api.h"
 #include "xla/pjrt/c/pjrt_c_api_helpers.h"
+#include "xla/pjrt/c/pjrt_c_api_layouts_extension.h"
 #include "xla/pjrt/distributed/key_value_store_interface.h"
 #include "xla/pjrt/pjrt_client.h"
 #include "xla/pjrt/pjrt_compiler.h"
@@ -39,7 +40,6 @@ limitations under the License.
 #include "xla/pjrt/pjrt_layout.h"
 #include "xla/shape.h"
 #include "xla/status.h"
-#include "tsl/platform/casts.h"
 
 struct PJRT_Error {
   absl::Status status;
@@ -208,6 +208,10 @@ struct PJRT_CopyToDeviceStream {
   std::unique_ptr<xla::CopyToDeviceStream> stream;
 };
 
+struct PJRT_Layouts_MemoryLayout {
+  std::unique_ptr<xla::PjRtLayout> layout;
+};
+
 namespace pjrt {
 // C API definitions
 
@@ -323,6 +327,8 @@ PJRT_Error* PJRT_Buffer_UnpaddedDimensions(
 PJRT_Error* PJRT_Buffer_DynamicDimensionIndices(
     PJRT_Buffer_DynamicDimensionIndices_Args* args);
 PJRT_Error* PJRT_Buffer_GetMemoryLayout(PJRT_Buffer_GetMemoryLayout_Args* args);
+PJRT_Error* PJRT_Layouts_PJRT_Buffer_MemoryLayout(
+    PJRT_Layouts_PJRT_Buffer_MemoryLayout_Args* args);
 PJRT_Error* PJRT_Buffer_OnDeviceSizeInBytes(
     PJRT_Buffer_OnDeviceSizeInBytes_Args* args);
 PJRT_Error* PJRT_Buffer_Device(PJRT_Buffer_Device_Args* args);
@@ -367,6 +373,9 @@ PJRT_Error* PJRT_TopologyDescription_Attributes(
     PJRT_TopologyDescription_Attributes_Args* args);
 
 PJRT_Error* PJRT_Compile(PJRT_Compile_Args* args);
+
+PJRT_Error* PJRT_Layouts_MemoryLayout_Destroy(
+    PJRT_Layouts_MemoryLayout_Destroy_Args* args);
 
 // Helper macros and functions
 
@@ -440,6 +449,9 @@ PJRT_Api CreatePjrtApi(PJRT_Client_Create* create_fn,
                        PJRT_Extension_Base* extension_start = nullptr,
                        PJRT_Plugin_Attributes* plugin_attributes_fn =
                            pjrt::PJRT_Plugin_Attributes_Empty);
+
+PJRT_Layouts_Extension CreateLayoutsExtension(
+    PJRT_Extension_Base* next = nullptr);
 
 }  // namespace pjrt
 

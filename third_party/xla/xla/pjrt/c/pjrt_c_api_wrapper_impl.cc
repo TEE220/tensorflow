@@ -47,6 +47,7 @@ limitations under the License.
 #include "xla/literal.h"
 #include "xla/pjrt/c/pjrt_c_api.h"
 #include "xla/pjrt/c/pjrt_c_api_helpers.h"
+#include "xla/pjrt/c/pjrt_c_api_layouts_extension.h"
 #include "xla/pjrt/compile_options.pb.h"
 #include "xla/pjrt/distributed/key_value_store_interface.h"
 #include "xla/pjrt/mlir_to_hlo.h"
@@ -1678,6 +1679,17 @@ PJRT_Error* PJRT_Buffer_GetMemoryLayout(
   return nullptr;
 }
 
+PJRT_Error* PJRT_Layouts_PJRT_Buffer_MemoryLayout(
+    PJRT_Layouts_PJRT_Buffer_MemoryLayout_Args* args) {
+  PJRT_RETURN_IF_ERROR(ActualStructSizeIsGreaterOrEqual(
+      "PJRT_Layouts_PJRT_Buffer_MemoryLayout_Args",
+      PJRT_Layouts_PJRT_Buffer_MemoryLayout_Args_STRUCT_SIZE,
+      args->struct_size));
+
+  args->layout = new PJRT_Layouts_MemoryLayout{args->buffer->buffer->layout()};
+  return nullptr;
+}
+
 PJRT_Error* PJRT_Buffer_OnDeviceSizeInBytes(
     PJRT_Buffer_OnDeviceSizeInBytes_Args* args) {
   PJRT_RETURN_IF_ERROR(ActualStructSizeIsGreaterOrEqual(
@@ -2110,6 +2122,15 @@ PJRT_Error* PJRT_Compile(PJRT_Compile_Args* args) {
   return nullptr;
 }
 
+PJRT_Error* PJRT_Layouts_MemoryLayout_Destroy(
+    PJRT_Layouts_MemoryLayout_Destroy_Args* args) {
+  PJRT_RETURN_IF_ERROR(ActualStructSizeIsGreaterOrEqual(
+      "PJRT_Layouts_MemoryLayout_Destroy_Args",
+      PJRT_Layouts_MemoryLayout_Destroy_Args_STRUCT_SIZE, args->struct_size));
+  delete args->layout;
+  return nullptr;
+}
+
 static std::vector<PJRT_NamedValue> PopulatePjrtAttributes(
     const absl::flat_hash_map<std::string, xla::PjRtDeviceAttribute>&
         attributes) {
@@ -2453,6 +2474,18 @@ PJRT_Api CreatePjrtApi(PJRT_Client_Create* create_fn,
       /*PJRT_Executable_GetCompiledMemoryStats= */
       pjrt::PJRT_Executable_GetCompiledMemoryStats,
       /*PJRT_Memory_Kind_Id=*/pjrt::PJRT_Memory_Kind_Id,
+  };
+}
+
+PJRT_Layouts_Extension CreateLayoutsExtension(PJRT_Extension_Base* next) {
+  return PJRT_Layouts_Extension{
+      /*struct_size=*/PJRT_Layouts_Extension_STRUCT_SIZE,
+      /*type=*/PJRT_Extension_Type_Layouts,
+      /*next=*/next,
+      /*PJRT_Layouts_MemoryLayout_Destroy=*/
+      pjrt::PJRT_Layouts_MemoryLayout_Destroy,
+      /*PJRT_Layouts_PJRT_Buffer_MemoryLayout=*/
+      pjrt::PJRT_Layouts_PJRT_Buffer_MemoryLayout,
   };
 }
 

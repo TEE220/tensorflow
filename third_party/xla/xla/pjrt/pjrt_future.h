@@ -244,6 +244,9 @@ template <class T>
 class PjRtFuture : public internal::PjRtFutureBase<T> {
   using Base = internal::PjRtFutureBase<T>;
 
+  static_assert(!std::is_same_v<T, absl::Status>,
+                "Use PjRtFuture<> specialization for stateless futures");
+
  public:
   // Wrapper for AsyncValueRef<T> that can be used by clients that don't
   // natively use TSL concurrency library.
@@ -418,32 +421,6 @@ class PjRtFuture<void> : public internal::PjRtFutureBase<std::nullopt_t> {
     }
     return Base::promise().IsError() ? Base::promise().GetError()
                                      : absl::OkStatus();
-  }
-
-  // TODO(b/333538339): Remove when all users of PjRtFuture<Status> will be
-  // converted to PjRtFuture<>. Currently this is an escape hatch to convert
-  // implicit error of a stateless event to a stateful future.
-  PjRtFuture<absl::Status> ToStatusFuture() {
-    auto promise = PjRtFuture<absl::Status>::CreatePromise();
-    OnReady([promise](absl::Status status) mutable {
-      promise.Set(std::move(status));
-    });
-    return PjRtFuture<absl::Status>(std::move(promise));
-  }
-
-  // TODO(b/333538339): Remove when all users of PjRtFuture<Status> will be
-  // converted to PjRtFuture<>. Currently this is an escape hatch to convert
-  // explicit error carried in a stateful future to a stateless future.
-  static PjRtFuture<> FromStatusFuture(PjRtFuture<absl::Status> future) {
-    PjRtFuture<>::Promise promise = PjRtFuture<>::CreatePromise();
-    future.OnReady([promise](absl::Status status) mutable {
-      if (status.ok()) {
-        promise.Set();
-      } else {
-        promise.SetError(std::move(status));
-      }
-    });
-    return PjRtFuture<>(std::move(promise));
   }
 
   // Registers callback to be called once the future is ready.
